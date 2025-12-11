@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Echo Plains – Sesin İzinde</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #05060a;
+      color: #f0f0f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #hintBox {
+      background: rgba(0,0,0,0.7);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 6px;
+      display: none;
+    }
+
+    #messageBox {
+      background: rgba(0,0,0,0.5);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    #bottomText {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.5);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      max-width: 600px;
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div id="hintBox"></div>
+    <div id="messageBox"></div>
+  </div>
+  <div id="bottomText"></div>
+  <canvas id="game"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const hintBox = document.getElementById("hintBox");
+    const messageBox = document.getElementById("messageBox");
+    const bottomText = document.getElementById("bottomText");
+
+    // Tam ekran ayarla
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Oyun dünyası
+    const world = {
+      width: 3000,
+      height: 3000
+    };
+
+    const player = {
+      x: world.width / 2,
+      y: world.height / 2,
+      radius: 14,
+      speed: 2.3
+    };
+
+    // Ses kaynağı (hedef)
+    const soundSource = {
+      x: world.width / 2 + 800,
+      y: world.height / 2 - 600,
+      radius: 20,
+      found: false
+    };
+
+    // Bazı dekoratif objeler
+    const stones = [];
+    for (let i = 0; i < 40; i++) {
+      stones.push({
+        x: Math.random() * world.width,
+        y: Math.random() * world.height,
+        r: 10 + Math.random() * 25
+      });
+    }
+
+    // Kontroller
+    const keys = {};
+    window.addEventListener("keydown", (e) => {
+      keys[e.key.toLowerCase()] = true;
+      if (!tutorialShown.move) {
+        showHint("W, A, S, D veya yön tuşları ile hareket edebilirsin.");
+        tutorialShown.move = true;
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    // Echo görünürlüğü
+    let echoTimer = 0;           // görünen süre
+    const echoDuration = 800;    // ms
+    const echoRadius = 220;
+
+    // Tutorial durumları
+    const tutorialShown = {
+      move: false,
+      interact: false,
+      nearSource: false
+    };
+
+    let lastTime = performance.now();
+
+    function showHint(text, duration = 2500) {
+      hintBox.textContent = text;
+      hintBox.style.display = "inline-block";
+      if (duration > 0) {
+        setTimeout(() => {
+          if (hintBox.textContent === text) {
+            hintBox.style.display = "none";
+          }
+        }, duration);
+      }
+    }
+
+    function setMessage(text) {
+      messageBox.textContent = text;
+    }
+
+    function setBottomText(text) {
+      bottomText.textContent = text;
+    }
+
+    setMessage("Gözlerini açtığında, sisli bir ovadasın. Uzaklardan ince bir ses geliyor...");
+    setBottomText("Sesin kaynağını bulmak için etrafı dolaş. Her adımında yankın çevreyi kısa süre gösterecek.");
+
+    function update(dt) {
+      // Hareket
+      let vx = 0, vy = 0;
+      if (keys["w"] || keys["arrowup"]) vy -= 1;
+      if (keys["s"] || keys["arrowdown"]) vy += 1;
+      if (keys["a"] || keys["arrowleft"]) vx -= 1;
+      if (keys["d"] || keys["arrowright"]) vx += 1;
+
+      const len = Math.hypot(vx, vy);
+      if (len > 0) {
+        vx /= len;
+        vy /= len;
+        player.x += vx * player.speed * dt * 0.1;
+        player.y += vy * player.speed * dt * 0.1;
+
+        // Dünya dışına çıkma
+        player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
+        player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
+
+        // Her harekette echo reset
+        echoTimer = echoDuration;
+      }
+
+      // Echo zamanını azalt
+      if (echoTimer > 0) {
+        echoTimer -= dt;
+        if (echoTimer < 0) echoTimer = 0;
+      }
+
+      // Ses kaynağına uzaklık
+      const dx = soundSource.x - player.x;
+      const dy = soundSource.y - player.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Ses yön bilgisi (basit sözlü ipucu)
+      let dirText = "";
+      const angle = Math.atan2(dy, dx); // -PI..PI
+      const deg = angle * 180 / Math.PI;
+
+      if (dist > 50) {
+        if (deg > -45 && deg <= 45) dirText = "Ses doğu tarafından geliyor.";
+        else if (deg > 45 && deg <= 135) dirText = "Ses kuzeydoğudan geliyor.";
+        else if (deg > 135 || deg <= -135) dirText = "Ses batı tarafından geliyor.";
+        else if (deg > -135 && deg <= -45) dirText = "Ses güneydoğudan geliyor.";
+      } else {
+        dirText = "Ses hemen yakından geliyor...";
+      }
+
+      if (!soundSource.found) {
+        setBottomText("Ses: " + dirText);
+      }
+
+      // Ses kaynağına yaklaşınca olay
+      if (dist < 180 && !tutorialShown.nearSource) {
+        tutorialShown.nearSource = true;
+        showHint("Yakında bir şey var... Yaklaştığında E tuşu ile inceleyebilirsin.", 3000);
+      }
+
+      // E tuşu ile etkileşim
+      if ((keys["e"] || keys[" "] || keys["enter"]) && dist < 120 && !soundSource.found) {
+        soundSource.found = true;
+        setMessage("Sesin kaynağını buldun. Karşı kıyıda silik bir silüet beliriyor...");
+        setBottomText("Ses: \"Beni buldun... ama bu sadece başlangıç.\"");
+        showHint("Bölüm 1 tamamlandı. Pencereyi kapatarak oyunu sonlandırabilirsin.", 0);
+      }
+    }
+
+    function draw() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Kamera oyuncuya odaklı
+      const camX = player.x - w / 2;
+      const camY = player.y - h / 2;
+
+      // Arka plan
+      ctx.fillStyle = "#05060a";
+      ctx.fillRect(0, 0, w, h);
+
+      // Hafif sis dokusu (noise gibi)
+      ctx.fillStyle = "#0b0f18";
+      for (let i = 0; i < 40; i++) {
+        const rx = (Math.random() * w) | 0;
+        const ry = (Math.random() * h) | 0;
+        ctx.fillRect(rx, ry, 2, 2);
+      }
+
+      // Objeleri çizerken önce gizli bir layer gibi düşün
+      ctx.save();
+
+      // Echo varsa görünür alan
+      if (echoTimer > 0 || soundSource.found) {
+        // Taşlar
+        ctx.fillStyle = "#252b38";
+        stones.forEach(s => {
+          const sx = s.x - camX;
+          const sy = s.y - camY;
+          ctx.beginPath();
+          ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Ses kaynağı (hafif parlayan)
+        if (!soundSource.found) {
+          const sx = soundSource.x - camX;
+          const sy = soundSource.y - camY;
+          ctx.beginPath();
+          ctx.fillStyle = "#5055ff";
+          ctx.arc(sx, sy, soundSource.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(160,170,255,0.6)";
+          ctx.arc(sx, sy, soundSource.radius + 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Oyuncu
+        const px = player.x - camX;
+        const py = player.y - camY;
+        ctx.beginPath();
+        ctx.fillStyle = "#f5f7ff";
+        ctx.arc(px, py, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      // Echo maskesi: dışı karanlık, sadece yakın çevre net
+      // Basitçe: ekranı karartıp ortada dairesel açıklık bırakıyoruz.
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = "rgba(0,0,0,0.9)";
+      ctx.fillRect(0, 0, w, h);
+
+      const px = player.x - camX;
+      const py = player.y - camY;
+
+      const effectiveRadius = echoTimer > 0 ? echoRadius : 80;
+
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, effectiveRadius);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, "rgba(0,0,0,1)");
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, effectiveRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function loop() {
+      const now = performance.now();
+      const dt = now - lastTime;
+      lastTime = now;
+
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Başlangıçta küçük bir ipucu göster
+    setTimeout(() => {
+      showHint("Sessiz kalma... İlk adımını atmayı dene.", 3000);
+    }, 800);
+
+    loop();
+  </script>
+</body>
+</html>
