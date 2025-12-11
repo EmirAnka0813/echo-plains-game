@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <title>Echo Plains 3D-ish – Sesin İzinde</title>
+  <title>Otman 3D – Echo Plains</title>
   <style>
     html, body {
       margin: 0;
@@ -10,15 +10,10 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #04060b;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1020;
       color: #f5f5f5;
     }
-
-    canvas {
-      display: block;
-    }
-
     #uiTop {
       position: absolute;
       top: 8px;
@@ -28,390 +23,306 @@
       z-index: 10;
       pointer-events: none;
     }
-
+    #title {
+      font-weight: 700;
+      font-size: 18px;
+      text-shadow: 0 0 8px rgba(0,0,0,0.7);
+    }
     #hint {
-      background: rgba(0,0,0,0.7);
+      margin-top: 4px;
+      background: rgba(0,0,0,0.55);
       padding: 6px 12px;
       border-radius: 10px;
       font-size: 13px;
-      margin-bottom: 4px;
-      display: none;
+      display: inline-block;
       box-shadow: 0 0 8px rgba(0,0,0,0.6);
     }
-
-    #msg {
-      background: rgba(0,0,0,0.4);
-      padding: 6px 10px;
-      border-radius: 10px;
-      font-size: 13px;
-      max-width: 520px;
-      margin: 0 auto;
-      box-shadow: 0 0 6px rgba(0,0,0,0.4);
-    }
-
     #bottom {
       position: absolute;
       bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.45);
+      background: rgba(0,0,0,0.6);
       padding: 6px 12px;
       border-radius: 10px;
       font-size: 13px;
       max-width: 600px;
       text-align: center;
-      pointer-events: none;
       z-index: 10;
-      box-shadow: 0 0 6px rgba(0,0,0,0.4);
+      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+      pointer-events: none;
+    }
+    #nameTag {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -120%);
+      color: #ffe9a6;
+      font-weight: 600;
+      text-shadow: 0 0 5px rgba(0,0,0,0.8);
+      pointer-events: none;
+      z-index: 9;
+    }
+    canvas {
+      display: block;
     }
   </style>
 </head>
 <body>
   <div id="uiTop">
-    <div id="hint"></div>
-    <div id="msg"></div>
+    <div id="title">OTMAN 3D – ECHO PLAINS</div>
+    <div id="hint">W, A, S, D ile hareket et. Shift ile daha hızlı koş.</div>
   </div>
-  <div id="bottom"></div>
-  <canvas id="game"></canvas>
+  <div id="nameTag">Otman</div>
+  <div id="bottom">
+    Uzakta parlayan kristali bul. Burası sisli ama karanlık değil; rüzgârın ve ışığın olduğu açık bir ova.
+  </div>
+
+  <!-- Three.js CDN -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 
   <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const hintBox = document.getElementById("hint");
-    const msgBox = document.getElementById("msg");
-    const bottomBox = document.getElementById("bottom");
+    // === TEMEL THREE.JS KURULUMU ===
+    const scene = new THREE.Scene();
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+    // Hafif mavi bir gökyüzü & ufuk ortamı
+    const skyColor = new THREE.Color(0x7abaff);
+    const groundColor = new THREE.Color(0x1b4f39);
+    scene.fog = new THREE.FogExp2(0x87a8ff, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setClearColor(0x0b1020);
+    document.body.appendChild(renderer.domElement);
+
+    // IŞIKLAR
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x335533, 0.8);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 40, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // ZEMİN
+    const groundGeo = new THREE.PlaneGeometry(200, 200, 40, 40);
+    const groundMat = new THREE.MeshLambertMaterial({
+      color: 0x2f7f55
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Hafif "yol" efekti için ortadan geçen farklı renkli şerit
+    const pathGeo = new THREE.PlaneGeometry(10, 160);
+    const pathMat = new THREE.MeshLambertMaterial({ color: 0x3c9272 });
+    const path = new THREE.Mesh(pathGeo, pathMat);
+    path.rotation.x = -Math.PI / 2;
+    path.position.z = -10;
+    scene.add(path);
+
+    // DEKORATİF AĞAÇLAR / KAYALAR
+    function addTree(x, z) {
+      const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, 3, 8);
+      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5b3a29 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.set(x, 1.5, z);
+      trunk.castShadow = true;
+
+      const crownGeo = new THREE.ConeGeometry(2.2, 4, 10);
+      const crownMat = new THREE.MeshLambertMaterial({ color: 0x2f8f46 });
+      const crown = new THREE.Mesh(crownGeo, crownMat);
+      crown.position.set(x, 4.7, z);
+      crown.castShadow = true;
+
+      scene.add(trunk, crown);
     }
-    window.addEventListener("resize", resize);
-    resize();
 
-    // === DÜNYA AYARLARI (İZOMETRİK) ===
-    const tileW = 90;   // izometrik karo genişliği
-    const tileH = 50;   // izometrik karo yüksekliği
-    const worldSize = 80; // 80x80 karo
+    function addRock(x, z) {
+      const geo = new THREE.DodecahedronGeometry(1.2);
+      const mat = new THREE.MeshLambertMaterial({ color: 0x9ba3b0 });
+      const rock = new THREE.Mesh(geo, mat);
+      rock.position.set(x, 1.2, z);
+      rock.castShadow = true;
+      scene.add(rock);
+    }
 
-    // Oyuncu "düz koordinat" dünyasında
-    const player = {
-      x: worldSize / 2,
-      y: worldSize / 2,
-      speed: 7,          // karo/saniye
-    };
+    for (let i = 0; i < 14; i++) {
+      addTree(
+        (Math.random() - 0.5) * 160,
+        (Math.random() - 0.5) * 160
+      );
+    }
+    for (let i = 0; i < 18; i++) {
+      addRock(
+        (Math.random() - 0.5) * 170,
+        (Math.random() - 0.5) * 170
+      );
+    }
 
-    // Ses kaynağı (uzakta bir kristal gibi)
-    const soundSource = {
-      x: worldSize / 2 + 12,
-      y: worldSize / 2 - 15,
-      found: false
-    };
+    // === OTMAN KARAKTERİ ===
+    const otman = new THREE.Group();
 
-    // Kontroller
+    // Gövde
+    const bodyGeo = new THREE.CapsuleGeometry(1, 2, 6, 10);
+    const bodyMat = new THREE.MeshPhongMaterial({
+      color: 0x3a5fff,
+      shininess: 80
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = true;
+    body.position.y = 2;
+    otman.add(body);
+
+    // Kafa
+    const headGeo = new THREE.SphereGeometry(0.9, 16, 16);
+    const headMat = new THREE.MeshPhongMaterial({ color: 0xffe1c1 });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 3.7;
+    head.castShadow = true;
+    otman.add(head);
+
+    // Basit "miğfer"
+    const helmGeo = new THREE.CylinderGeometry(0.7, 0.9, 0.7, 12);
+    const helmMat = new THREE.MeshPhongMaterial({ color: 0x404860 });
+    const helm = new THREE.Mesh(helmGeo, helmMat);
+    helm.position.y = 4.2;
+    otman.add(helm);
+
+    // Gölge için küçük disk
+    const shadowGeo = new THREE.CircleGeometry(1.6, 20);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      opacity: 0.4,
+      transparent: true
+    });
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.01;
+    otman.add(shadow);
+
+    otman.position.set(0, 0, 20);
+    scene.add(otman);
+
+    // === SES KAYNAĞI / KRİSTAL ===
+    const crystalGeo = new THREE.OctahedronGeometry(1.2);
+    const crystalMat = new THREE.MeshPhongMaterial({
+      color: 0x68f7ff,
+      emissive: 0x1f6cff,
+      emissiveIntensity: 0.7,
+      shininess: 120
+    });
+    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+    crystal.castShadow = true;
+    crystal.position.set(0, 1.8, -30);
+    scene.add(crystal);
+
+    const crystalGlowGeo = new THREE.SphereGeometry(2.6, 16, 16);
+    const crystalGlowMat = new THREE.MeshBasicMaterial({
+      color: 0x7eeaff,
+      transparent: true,
+      opacity: 0.25
+    });
+    const glow = new THREE.Mesh(crystalGlowGeo, crystalGlowMat);
+    glow.position.copy(crystal.position);
+    scene.add(glow);
+
+    // Kamera başlangıç pozisyonu (üstten açılı, Mobile Legends hissi)
+    camera.position.set(0, 22, 32);
+    camera.lookAt(otman.position);
+
+    // === KONTROLLER ===
     const keys = {};
     window.addEventListener("keydown", (e) => {
       keys[e.key.toLowerCase()] = true;
-      if (!tutorialShown.move) {
-        showHint("W, A, S, D veya yön tuşları ile hareket edebilirsin.", 2600);
-        tutorialShown.move = true;
-      }
     });
     window.addEventListener("keyup", (e) => {
       keys[e.key.toLowerCase()] = false;
     });
 
-    // ECHO – oyuncu etrafındaki görüş alanı
-    let echoTimer = 0;
-    const echoDuration = 900; // ms
-    const echoRadius = 260;
-
-    // Tutorial flag'leri
-    const tutorialShown = {
-      move: false,
-      nearSource: false,
-      interact: false
-    };
-
-    function showHint(text, duration = 2500) {
-      hintBox.textContent = text;
-      hintBox.style.display = "inline-block";
-      if (duration > 0) {
-        setTimeout(() => {
-          if (hintBox.textContent === text) {
-            hintBox.style.display = "none";
-          }
-        }, duration);
-      }
-    }
-
-    function setMsg(text) {
-      msgBox.textContent = text;
-    }
-
-    function setBottom(text) {
-      bottomBox.textContent = text;
-    }
-
-    setMsg("Sisli bir ovanın ortasında gözlerini açıyorsun. Etraf karanlık, ama uzaklardan bir ses yankılanıyor...");
-    setBottom("Sesin kaynağını bulmak için ovada dolaş. Adımlarının yankısı çevreni kısa süreliğine görünür kılacak.");
-
-    // Düz koordinattan izometrik ekrana dönüştürme
-    function worldToScreen(wx, wy, camX, camY) {
-      // izometrik dönüşüm
-      const sx = (wx - wy) * (tileW / 2);
-      const sy = (wx + wy) * (tileH / 2);
-      // kamera offset
-      return {
-        x: sx - camX,
-        y: sy - camY
-      };
-    }
-
     let lastTime = performance.now();
 
     function update(dt) {
       const sec = dt / 1000;
+      const walkSpeed = keys["shift"] ? 18 : 10; // Shift = koşma
+      let vx = 0;
+      let vz = 0;
 
-      // Hareket
-      let moveX = 0;
-      let moveY = 0;
-      if (keys["w"] || keys["arrowup"])    moveY -= 1;
-      if (keys["s"] || keys["arrowdown"])  moveY += 1;
-      if (keys["a"] || keys["arrowleft"])  moveX -= 1;
-      if (keys["d"] || keys["arrowright"]) moveX += 1;
+      // W,A,S,D ekranda normal yönlerde:
+      // W: yukarı, S: aşağı, A: sol, D: sağ
+      if (keys["w"]) vz -= 1;
+      if (keys["s"]) vz += 1;
+      if (keys["a"]) vx -= 1;
+      if (keys["d"]) vx += 1;
 
-      if (moveX !== 0 || moveY !== 0) {
-        const len = Math.hypot(moveX, moveY);
-        moveX /= len;
-        moveY /= len;
-        player.x += moveX * player.speed * sec;
-        player.y += moveY * player.speed * sec;
+      if (vx !== 0 || vz !== 0) {
+        const len = Math.hypot(vx, vz);
+        vx /= len;
+        vz /= len;
 
-        // sınırlar
-        player.x = Math.max(2, Math.min(worldSize - 2, player.x));
-        player.y = Math.max(2, Math.min(worldSize - 2, player.y));
+        otman.position.x += vx * walkSpeed * sec;
+        otman.position.z += vz * walkSpeed * sec;
 
-        echoTimer = echoDuration; // hareket edince yankı tazelenir
+        // Otman'ın baktığı yön (Mobile legends gibi döner)
+        otman.rotation.y = Math.atan2(vx, vz);
       }
 
-      if (echoTimer > 0) {
-        echoTimer -= dt;
-        if (echoTimer < 0) echoTimer = 0;
+      // Sınırlar
+      const limit = 95;
+      otman.position.x = Math.max(-limit, Math.min(limit, otman.position.x));
+      otman.position.z = Math.max(-limit, Math.min(limit, otman.position.z));
+
+      // Kamera, Otman'ı takip etsin (üstten hafif açılı)
+      camera.position.x = otman.position.x;
+      camera.position.z = otman.position.z + 24;
+      camera.position.y = 22;
+      camera.lookAt(otman.position.x, otman.position.y + 3, otman.position.z);
+
+      // Kristale ne kadar yakın?
+      const dx = crystal.position.x - otman.position.x;
+      const dz = crystal.position.z - otman.position.z;
+      const dist = Math.hypot(dx, dz);
+
+      const bottom = document.getElementById("bottom");
+      if (dist > 5) {
+        bottom.textContent =
+          "Otman: \"Şu parlayan kristale yaklaşmam gerek... W, A, S, D ile ilerle. Shift ile koş.\"";
+      } else {
+        bottom.textContent =
+          "Kristalden bir ses geliyor: \"Beni buldun, Otman... Bu topraklar artık senin efsanenin başlangıcı.\"";
       }
 
-      // Ses kaynağı uzaklık / yön bilgisi
-      const dx = soundSource.x - player.x;
-      const dy = soundSource.y - player.y;
-      const dist = Math.hypot(dx, dy);
-
-      // yön açıklaması
-      let dirText = "";
-      const angle = Math.atan2(dy, dx); // -PI..PI
-      const deg = angle * 180 / Math.PI;
-
-      if (!soundSource.found) {
-        if (dist > 1) {
-          if (deg > -30 && deg <= 30) dirText = "Ses, doğu tarafından geliyor.";
-          else if (deg > 30 && deg <= 60) dirText = "Ses, kuzeydoğudan geliyor.";
-          else if (deg > 60 && deg <= 120) dirText = "Ses, kuzey tarafından geliyor.";
-          else if (deg > 120 && deg <= 150) dirText = "Ses, kuzeybatıdan geliyor.";
-          else if (deg > 150 || deg <= -150) dirText = "Ses, batı tarafından geliyor.";
-          else if (deg > -150 && deg <= -120) dirText = "Ses, güneybatıdan geliyor.";
-          else if (deg > -120 && deg <= -60) dirText = "Ses, güney tarafından geliyor.";
-          else if (deg > -60 && deg <= -30) dirText = "Ses, güneydoğudan geliyor.";
-        } else {
-          dirText = "Ses hemen yanından geliyor...";
-        }
-        setBottom("Ses: " + dirText);
-      }
-
-      // Ses kaynağına yaklaşma – öğretici
-      if (dist < 6 && !tutorialShown.nearSource && !soundSource.found) {
-        tutorialShown.nearSource = true;
-        showHint("Yakınında bir şey var. İncelemek için E tuşuna bas.", 2800);
-        tutorialShown.interact = true;
-      }
-
-      // E ile etkileşim
-      if ((keys["e"] || keys["enter"] || keys[" "]) && dist < 6 && !soundSource.found) {
-        soundSource.found = true;
-        setMsg("Sesin kaynağını buldun. Uzakta, sisin arasında silik bir silüet beliriyor...");
-        setBottom("Ses: \"Beni buldun... ama bu sadece başlangıç. Bu ova, hikâyenin ilk yankısıydı.\"");
-        showHint("Bölüm 1 tamamlandı. Pencereyi kapatabilir ya da ovada dolaşmaya devam edebilirsin.", 0);
-      }
+      // Kristal hafif dönsün ve parlasın
+      crystal.rotation.y += sec * 1.2;
+      glow.rotation.y -= sec * 0.6;
     }
 
-    function draw() {
-      const w = canvas.width;
-      const h = canvas.height;
-
-      ctx.clearRect(0, 0, w, h);
-
-      // Hafif degrade gökyüzü
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-      skyGrad.addColorStop(0, "#05091a");
-      skyGrad.addColorStop(1, "#020307");
-      ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Kamera: oyuncuyu merkeze al
-      const playerIso = {
-        x: (player.x - player.y) * (tileW / 2),
-        y: (player.x + player.y) * (tileH / 2)
-      };
-      const camX = playerIso.x - w / 2;
-      const camY = playerIso.y - h / 2;
-
-      // Zemin için kareleri çiz (oyuncunun çevresinde belli bir alan)
-      const viewRadius = 20;
-      for (let gx = Math.floor(player.x) - viewRadius; gx <= Math.floor(player.x) + viewRadius; gx++) {
-        for (let gy = Math.floor(player.y) - viewRadius; gy <= Math.floor(player.y) + viewRadius; gy++) {
-          if (gx < 0 || gx > worldSize || gy < 0 || gy > worldSize) continue;
-
-          const screen = worldToScreen(gx, gy, camX, camY);
-          const sx = screen.x;
-          const sy = screen.y;
-
-          // zemini LoL vari hafif 3D hissiyle çiz (elmas karo)
-          const baseColor = "#1d2632";
-          const edgeColor = "#111822";
-
-          ctx.beginPath();
-          ctx.moveTo(sx, sy - tileH / 2);
-          ctx.lineTo(sx + tileW / 2, sy);
-          ctx.lineTo(sx, sy + tileH / 2);
-          ctx.lineTo(sx - tileW / 2, sy);
-          ctx.closePath();
-
-          // uzaklığa göre hafif koyulaştır
-          const dpx = gx - player.x;
-          const dpy = gy - player.y;
-          const dd = Math.hypot(dpx, dpy);
-          const darkness = Math.min(0.5, dd / 40);
-          ctx.fillStyle = shadeColor(baseColor, -darkness * 60);
-          ctx.fill();
-          ctx.strokeStyle = shadeColor(edgeColor, -darkness * 30);
-          ctx.stroke();
-        }
-      }
-
-      // Ses kaynağı – kristal
-      if (!soundSource.found) {
-        const sPos = worldToScreen(soundSource.x, soundSource.y, camX, camY);
-        // gölge
-        ctx.beginPath();
-        ctx.ellipse(sPos.x, sPos.y + 12, 26, 10, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(10,10,30,0.9)";
-        ctx.fill();
-
-        // kristal gövde
-        ctx.beginPath();
-        ctx.moveTo(sPos.x, sPos.y - 32);
-        ctx.lineTo(sPos.x + 14, sPos.y);
-        ctx.lineTo(sPos.x, sPos.y + 28);
-        ctx.lineTo(sPos.x - 14, sPos.y);
-        ctx.closePath();
-
-        const crystalGrad = ctx.createLinearGradient(sPos.x, sPos.y - 32, sPos.x, sPos.y + 28);
-        crystalGrad.addColorStop(0, "#6af3ff");
-        crystalGrad.addColorStop(1, "#2248ff");
-        ctx.fillStyle = crystalGrad;
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(200,240,255,0.9)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // kristal aura
-        ctx.beginPath();
-        ctx.arc(sPos.x, sPos.y, 50, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(120,180,255,0.35)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      // Oyuncu – hafif 3D görünüm (gölge + gövde)
-      const pPos = worldToScreen(player.x, player.y, camX, camY);
-
-      // gölge
-      ctx.beginPath();
-      ctx.ellipse(pPos.x, pPos.y + 14, 24, 10, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.8)";
-      ctx.fill();
-
-      // gövde
-      const grad = ctx.createRadialGradient(pPos.x, pPos.y - 18, 4, pPos.x, pPos.y - 8, 26);
-      grad.addColorStop(0, "#ffffff");
-      grad.addColorStop(1, "#92a0ff");
-      ctx.beginPath();
-      ctx.arc(pPos.x, pPos.y - 16, 22, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // kafa
-      ctx.beginPath();
-      ctx.arc(pPos.x, pPos.y - 38, 10, 0, Math.PI * 2);
-      ctx.fillStyle = "#f0f4ff";
-      ctx.fill();
-      ctx.strokeStyle = "rgba(40,50,90,0.8)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // Echo – görüş maskesi (sis içinde daire)
-      ctx.save();
-      ctx.fillStyle = "rgba(0,0,0,0.85)";
-      ctx.fillRect(0, 0, w, h);
-      const r = echoTimer > 0 ? echoRadius : 120;
-      const echoGrad = ctx.createRadialGradient(pPos.x, pPos.y - 10, 0, pPos.x, pPos.y - 10, r);
-      echoGrad.addColorStop(0, "rgba(0,0,0,0)");
-      echoGrad.addColorStop(1, "rgba(0,0,0,1)");
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = echoGrad;
-      ctx.beginPath();
-      ctx.arc(pPos.x, pPos.y - 10, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // hafif parazit/sis efekt
-      ctx.save();
-      ctx.globalAlpha = 0.12;
-      for (let i = 0; i < 60; i++) {
-        const rx = Math.random() * w;
-        const ry = Math.random() * h;
-        ctx.fillStyle = "#0c101a";
-        ctx.fillRect(rx, ry, 2, 2);
-      }
-      ctx.restore();
-    }
-
-    // Renk tonlama fonksiyonu
-    function shadeColor(color, percent) {
-      // color: "#rrggbb"
-      const num = parseInt(color.slice(1), 16);
-      let r = (num >> 16) + percent;
-      let g = ((num >> 8) & 0x00FF) + percent;
-      let b = (num & 0x0000FF) + percent;
-      r = Math.min(255, Math.max(0, r));
-      g = Math.min(255, Math.max(0, g));
-      b = Math.min(255, Math.max(0, b));
-      return "#" + (b | (g << 8) | (r << 16)).toString(16).padStart(6, "0");
-    }
-
-    function loop() {
+    function animate() {
       const now = performance.now();
       const dt = now - lastTime;
       lastTime = now;
+
       update(dt);
-      draw();
-      requestAnimationFrame(loop);
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
     }
+    animate();
 
-    // Başlangıç ipucu
-    setTimeout(() => {
-      showHint("Sessizlik fazla uzun sürdü... İlk adımını atmayı dene.", 3000);
-    }, 800);
-
-    loop();
+    // Resize
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
