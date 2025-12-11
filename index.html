@@ -1,557 +1,756 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Otman 3D – Kışın Yankısı</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0b1020;
-      color: #f5f5f5;
-    }
-    canvas { display:block; }
+<meta charset="UTF-8" />
+<title>Otman 3D – Kış Motoru</title>
 
-    #uiTop {
-      position: absolute;
-      top: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      z-index: 10;
-      pointer-events: none;
-    }
-    #title {
-      font-weight: 700;
-      font-size: 18px;
-      text-shadow: 0 0 8px rgba(0,0,0,0.7);
-    }
-    #hint {
-      margin-top: 4px;
-      background: rgba(0,0,0,0.55);
-      padding: 6px 12px;
-      border-radius: 10px;
-      font-size: 13px;
-      display: inline-block;
-      box-shadow: 0 0 8px rgba(0,0,0,0.6);
-    }
-    #bottom {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      padding: 6px 12px;
-      border-radius: 10px;
-      font-size: 13px;
-      max-width: 650px;
-      text-align: center;
-      z-index: 10;
-      box-shadow: 0 0 8px rgba(0,0,0,0.7);
-      pointer-events: none;
-    }
-    #nameTag {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -120%);
-      color: #ffe9a6;
-      font-weight: 600;
-      text-shadow: 0 0 5px rgba(0,0,0,0.8);
-      pointer-events: none;
-      z-index: 9;
-    }
-  </style>
+<style>
+  html, body {
+    margin: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    font-family: sans-serif;
+  }
+
+  #uiTop {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 10px;
+    color: #fff;
+    z-index: 5;
+    font-size: 14px;
+  }
+
+  canvas { display:block; }
+</style>
+
 </head>
 <body>
-  <div id="uiTop">
-    <div id="title">OTMAN 3D – KIŞIN YANKISI</div>
-    <div id="hint">W, A, S, D ile hareket et. Shift ile koş. Space ile saldır, E ile etkileşim.</div>
-  </div>
-  <div id="nameTag">Otman</div>
-  <div id="bottom">
-    Otman soğuk bir kış sabahı evinde uyanır… ama evin yarısı yok olmuştur. Uzaklardan yankılanan bir ses duyulur: “Otm-aaaan…”
-  </div>
 
-  <!-- Three.js CDN -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<div id="uiTop">Sağ tuş basılı tut → Kamera döner | W A S D → Hareket</div>
 
-  <script>
-    // === TEMEL KURULUM ===
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0xc4d8ff, 0.008);
+<!-- THREE.JS + POSTPROCESSING -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/RGBELoader.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js"></script>
 
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
+<script>
+/* ----------------------------------------------
+   SAHNE – MOTOR BAŞLANGICI
+------------------------------------------------*/
+const scene = new THREE.Scene();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
-    renderer.setClearColor(0x88a8ff);
-    renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
 
-    // IŞIKLAR
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8ca0c4, 0.9);
-    scene.add(hemiLight);
+camera.position.set(0, 6, 12);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    dirLight.position.set(40, 60, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
-    scene.add(dirLight);
+/* ----------------------------------------------
+   RENDER – YÜKSEK KALİTE
+------------------------------------------------*/
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "high-performance"
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
 
-    // === KARLI ZEMİN ===
-    const groundGeo = new THREE.PlaneGeometry(260, 260, 60, 60);
-    // hafif yükseklik gürültüsü
-    for (let i = 0; i < groundGeo.attributes.position.count; i++) {
-      const y = groundGeo.attributes.position.getY(i);
-      const x = groundGeo.attributes.position.getX(i);
-      const z = groundGeo.attributes.position.getZ(i);
-      const noise = (Math.sin(x * 0.15) + Math.cos(z * 0.18)) * 0.25;
-      groundGeo.attributes.position.setY(i, y + noise);
+/* ----------------------------------------------
+   HDRI GÖKYÜZÜ YÜKLEME
+------------------------------------------------*/
+new THREE.RGBELoader()
+  .setDataType(THREE.UnsignedByteType)
+  .load(
+    "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/snowy_forest_path_01_1k.hdr",
+    (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.environment = texture;
+      scene.background = texture;
     }
-    groundGeo.computeVertexNormals();
-    const groundMat = new THREE.MeshLambertMaterial({
-      color: 0xf6fbff
-    });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+  );
 
-    // === DAĞLAR (ÇEVREDE) ===
-    function addMountain(x, z, r, h) {
-      const geo = new THREE.ConeGeometry(r, h, 6);
-      const mat = new THREE.MeshLambertMaterial({ color: 0xe0ecff });
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(x, h / 2, z);
-      m.castShadow = true;
-      scene.add(m);
-    }
-    for (let i = 0; i < 14; i++) {
-      const angle = (i / 14) * Math.PI * 2;
-      const radius = 130 + Math.random() * 30;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      addMountain(x, z, 10 + Math.random() * 8, 18 + Math.random() * 16);
-    }
+/* ----------------------------------------------
+   IŞIKLANDIRMA (Gerçekçi)
+------------------------------------------------*/
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+dirLight.position.set(20, 40, 20);
+dirLight.castShadow = true;
+scene.add(dirLight);
 
-    // === KARLI AĞAÇLAR ===
-    function addSnowTree(x, z) {
-      const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, 2.4, 8);
-      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x7b4a2b });
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.set(x, 1.2, z);
-      trunk.castShadow = true;
+const fillLight = new THREE.AmbientLight(0xffffff, 0.35);
+scene.add(fillLight);
 
-      const crownGeo = new THREE.ConeGeometry(2.4, 4.5, 10);
-      const crownMat = new THREE.MeshLambertMaterial({ color: 0xdff6ff });
-      const crown = new THREE.Mesh(crownGeo, crownMat);
-      crown.position.set(x, 4, z);
-      crown.castShadow = true;
+/* ----------------------------------------------
+   GERÇEKÇİ KAR ZEMİNİ (PBR)
+------------------------------------------------*/
+const snowGeo = new THREE.PlaneGeometry(400, 400);
 
-      scene.add(trunk, crown);
-    }
-    for (let i = 0; i < 26; i++) {
-      const x = (Math.random() - 0.5) * 200;
-      const z = (Math.random() - 0.5) * 200;
-      if (Math.abs(x) < 25 && Math.abs(z - 20) < 25) continue; // ev yolu boş kalsın
-      addSnowTree(x, z);
-    }
+const snowTex = new THREE.TextureLoader().load("https://threejs.org/examples/textures/terrain/grasslight-big.jpg");
+snowTex.wrapS = snowTex.wrapT = THREE.RepeatWrapping;
+snowTex.repeat.set(40, 40);
 
-    // === OTMAN EVİ (YARISI YOK) ===
-    const house = new THREE.Group();
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0xc9c1b5 });
+const snowMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 0.9,
+  metalness: 0.1
+});
 
-    function wall(w, h, d, x, y, z) {
-      const g = new THREE.BoxGeometry(w, h, d);
-      const m = new THREE.Mesh(g, wallMat);
-      m.position.set(x, y, z);
-      m.castShadow = true;
-      house.add(m);
-    }
+const ground = new THREE.Mesh(snowGeo, snowMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
 
-    // 4 duvardan 2'si kırık // sadece yarısı var
-    wall(12, 4, 0.5, 0, 2, 6);   // arka duvar
-    wall(0.5, 4, 10, -6, 2, 1);  // sol duvar
-    // sağ ve ön duvar yok gibi (yarısı yok hissi)
+/* ----------------------------------------------
+   KARI YAĞDIRAN PARÇACIK SİSTEMİ
+------------------------------------------------*/
+const snowCount = 1600;
+const snowPositions = new Float32Array(snowCount * 3);
 
-    const floorGeo = new THREE.PlaneGeometry(12, 10);
-    const floorMat = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, 0.02, 1);
-    floor.receiveShadow = true;
-    house.add(floor);
+for (let i = 0; i < snowCount; i++) {
+  snowPositions[i * 3]     = (Math.random() - 0.5) * 300;
+  snowPositions[i * 3 + 1] = Math.random() * 80 + 10;
+  snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 300;
+}
 
-    house.position.set(0, 0, 35);
-    scene.add(house);
+const snowGeometry = new THREE.BufferGeometry();
+snowGeometry.setAttribute("position", new THREE.BufferAttribute(snowPositions, 3));
 
-    // === OTMAN KARAKTERİ ===
-    const otman = new THREE.Group();
-    const bodyGeo = new THREE.CapsuleGeometry(1, 2.2, 6, 12);
-    const bodyMat = new THREE.MeshPhongMaterial({ color: 0x3a5fff, shininess: 100 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 2.2;
-    body.castShadow = true;
-    otman.add(body);
+const snowMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.35,
+  transparent: true
+});
 
-    const headGeo = new THREE.SphereGeometry(0.9, 18, 18);
-    const headMat = new THREE.MeshPhongMaterial({ color: 0xffe1c1 });
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 3.9;
-    head.castShadow = true;
-    otman.add(head);
+const snowPoints = new THREE.Points(snowGeometry, snowMaterial);
+scene.add(snowPoints);
 
-    const helmGeo = new THREE.CylinderGeometry(0.8, 1.0, 0.7, 16);
-    const helmMat = new THREE.MeshPhongMaterial({ color: 0x30364f });
-    const helm = new THREE.Mesh(helmGeo, helmMat);
-    helm.position.y = 4.4;
-    otman.add(helm);
+/* ----------------------------------------------
+   OTMAN SAHNESİ – ŞİMDİLİK GEÇİCİ MODEL
+   (AŞAMA 2’de gerçek model + animasyon gelecek)
+------------------------------------------------*/
+const otman = new THREE.Group();
 
-    const shadowGeo = new THREE.CircleGeometry(1.7, 20);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.35
-    });
-    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.01;
-    otman.add(shadow);
+const bodyGeo = new THREE.CapsuleGeometry(0.7, 1.8, 6, 12);
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2f66ff });
+const body = new THREE.Mesh(bodyGeo, bodyMat);
+body.castShadow = true;
+body.position.y = 1.8;
+otman.add(body);
 
-    otman.position.set(0, 0, 38);
-    scene.add(otman);
+const headGeo = new THREE.SphereGeometry(0.55, 24, 24);
+const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+const head = new THREE.Mesh(headGeo, headMat);
+head.position.y = 3.1;
+otman.add(head);
 
-    // === KULE, UÇURUM VE KÖPRÜ ===
-    // Uçurum hattı: z ≈ -10 ile -20 arası boşluk gibi düşüneceğiz
+otman.position.set(0, 0, 0);
+scene.add(otman);
 
-    // Kulenin bulunduğu diğer taraf platformu
-    const farPlateGeo = new THREE.PlaneGeometry(40, 40);
-    const farPlateMat = new THREE.MeshLambertMaterial({ color: 0xf5fbff });
-    const farPlate = new THREE.Mesh(farPlateGeo, farPlateMat);
-    farPlate.rotation.x = -Math.PI / 2;
-    farPlate.position.set(0, 0.03, -35);
-    farPlate.receiveShadow = true;
-    scene.add(farPlate);
+/* ----------------------------------------------
+   SAĞ TIK MOUSE KAMERA KONTROLÜ (Valorant-benzeri)
+------------------------------------------------*/
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target = otman.position;
+controls.enableDamping = true;
+controls.dampingFactor = 0.1;
+controls.enablePan = false;
+controls.enableZoom = true;
+controls.minDistance = 6;
+controls.maxDistance = 20;
+controls.rotateSpeed = 0.8;
 
-    // Uçurum kenarlarını koyu yap
-    const cliffGeo = new THREE.BoxGeometry(40, 4, 10);
-    const cliffMat = new THREE.MeshLambertMaterial({ color: 0x717b8a });
-    const cliffFront = new THREE.Mesh(cliffGeo, cliffMat);
-    cliffFront.position.set(0, -2, -5);
-    cliffFront.castShadow = true;
-    scene.add(cliffFront);
-    const cliffBack = new THREE.Mesh(cliffGeo, cliffMat);
-    cliffBack.position.set(0, -2, -25);
-    cliffBack.castShadow = true;
-    scene.add(cliffBack);
+let rightMouseDown = false;
 
-    // Köprü (başta yatık / aşağıda)
-    const bridgeGeo = new THREE.BoxGeometry(4, 0.4, 16);
-    const bridgeMat = new THREE.MeshLambertMaterial({ color: 0xc8c5b5 });
-    const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
-    bridge.position.set(0, -0.2, -15);
-    bridge.castShadow = true;
-    // köprü menteşeli gibi olsun: rotation X ile iner/kalkar
-    bridge.rotation.x = Math.PI / 2; // dik duruyor, geçilemiyor
-    scene.add(bridge);
+document.addEventListener("mousedown", (e) => {
+  if (e.button === 2) rightMouseDown = true;
+});
 
-    let bridgeLowered = false;
-    let bridgeAnim = 0; // 0..1
+document.addEventListener("mouseup", (e) => {
+  if (e.button === 2) rightMouseDown = false;
+});
 
-    // Kule
-    const towerGeo = new THREE.CylinderGeometry(3, 4, 18, 18);
-    const towerMat = new THREE.MeshLambertMaterial({ color: 0xcfd6e5 });
-    const tower = new THREE.Mesh(towerGeo, towerMat);
-    tower.position.set(0, 9, -40);
-    tower.castShadow = true;
-    scene.add(tower);
+// Sağ tık yoksa kamera dönmez
+controls.enableRotate = false;
 
-    // Kule tepesinde buton
-    const buttonGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.4, 18);
-    const buttonMat = new THREE.MeshPhongMaterial({
-      color: 0xff5555,
-      emissive: 0xaa0000,
-      emissiveIntensity: 0.7
-    });
-    const button = new THREE.Mesh(buttonGeo, buttonMat);
-    button.position.set(0, 18.5, -40);
-    button.castShadow = true;
-    scene.add(button);
+/* ----------------------------------------------
+   KLAVYE KONTROLLERİ – HAREKET
+------------------------------------------------*/
+const keys = {};
+document.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
-    // === KAR YAĞIŞI (PARTICLE) ===
-    const snowCount = 800;
-    const snowGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(snowCount * 3);
-    for (let i = 0; i < snowCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 220;
-      positions[i * 3 + 1] = Math.random() * 60 + 10;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 220;
-    }
-    snowGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const snowMat = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.4,
-      transparent: true,
-      opacity: 0.8
-    });
-    const snow = new THREE.Points(snowGeo, snowMat);
-    scene.add(snow);
+/* ----------------------------------------------
+   POST-PROCESSING (Bloom)
+------------------------------------------------*/
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(new THREE.RenderPass(scene, camera));
 
-    // === KONTROLLER ===
-    const keys = {};
-    window.addEventListener("keydown", e => {
-      keys[e.key.toLowerCase()] = true;
-    });
-    window.addEventListener("keyup", e => {
-      keys[e.key.toLowerCase()] = false;
-    });
+const bloom = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.35,
+  0.4,
+  0.3
+);
+composer.addPass(bloom);
 
-    let lastTime = performance.now();
+/* ----------------------------------------------
+   ANİMASYON DÖNGÜSÜ
+------------------------------------------------*/
+let last = performance.now();
 
-    // GAME STATE
-    let gameState = "intro"; 
-    // intro -> goTower -> onTowerTop -> bridgeLowered -> battle -> victory
-    const bottomBox = document.getElementById("bottom");
-    const hintBox = document.getElementById("hint");
+function animate() {
+  requestAnimationFrame(animate);
 
-    function setBottom(text) { bottomBox.textContent = text; }
-    function setHint(text) { hintBox.textContent = text; }
+  // Zaman hesapla
+  const now = performance.now();
+  const dt = (now - last) / 1000;
+  last = now;
 
-    setBottom(
-      "Otman: \"Evimin yarısı yok olmuş... Bu sesi takip etmeliyim.\" – Evin dışına çık ve dağların arasındaki kuleye doğru ilerle."
-    );
+  // Mouse sağ tık ile kamera dönebilir
+  controls.enableRotate = rightMouseDown;
 
-    // ==== CANAVARLAR: KAR İSKELETLERİ ====
-    const skeletons = [];
-    function spawnSkeleton(x, z) {
-      const skel = new THREE.Group();
-      const boneMat = new THREE.MeshPhongMaterial({ color: 0xfafafa, shininess: 30 });
+  // Kar yağışı hareketi
+  const pos = snowGeometry.attributes.position;
+  for (let i = 0; i < snowCount; i++) {
+    let y = pos.getY(i);
+    y -= dt * (4 + Math.random() * 1.5);
+    if (y < 0) y = 60 + Math.random() * 20;
+    pos.setY(i, y);
+  }
+  pos.needsUpdate = true;
 
-      const torsoGeo = new THREE.CapsuleGeometry(0.5, 1.2, 6, 10);
-      const torso = new THREE.Mesh(torsoGeo, boneMat);
-      torso.position.y = 1.6;
-      skel.add(torso);
+  // OTMAN hareketi
+  let speed = 6;
+  let vx = 0, vz = 0;
 
-      const skullGeo = new THREE.SphereGeometry(0.5, 14, 14);
-      const skull = new THREE.Mesh(skullGeo, boneMat);
-      skull.position.y = 2.7;
-      skel.add(skull);
+  if (keys["w"]) vz -= 1;
+  if (keys["s"]) vz += 1;
+  if (keys["a"]) vx -= 1;
+  if (keys["d"]) vx += 1;
 
-      const legGeo = new THREE.CylinderGeometry(0.18, 0.2, 1.1, 8);
-      const legL = new THREE.Mesh(legGeo, boneMat);
-      legL.position.set(-0.25, 0.55, 0);
-      const legR = legL.clone();
-      legR.position.x = 0.25;
-      skel.add(legL, legR);
+  if (vx !== 0 || vz !== 0) {
+    const len = Math.hypot(vx, vz);
+    vx /= len; vz /= len;
 
-      const armGeo = new THREE.CylinderGeometry(0.15, 0.18, 1.0, 8);
-      const armL = new THREE.Mesh(armGeo, boneMat);
-      armL.position.set(-0.7, 1.8, 0);
-      armL.rotation.z = Math.PI / 6;
-      const armR = armL.clone();
-      armR.position.x = 0.7;
-      armR.rotation.z = -Math.PI / 6;
-      skel.add(armL, armR);
+    otman.position.x += vx * speed * dt;
+    otman.position.z += vz * speed * dt;
 
-      const sShadowGeo = new THREE.CircleGeometry(0.9, 14);
-      const sShadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
-      const sShadow = new THREE.Mesh(sShadowGeo, sShadowMat);
-      sShadow.rotation.x = -Math.PI / 2;
-      sShadow.position.y = 0.01;
-      skel.add(sShadow);
+    // Otman'ın baktığı yön
+    otman.rotation.y = Math.atan2(vx, vz);
 
-      skel.position.set(x, 0, z);
-      skel.castShadow = true;
-      scene.add(skel);
+    // Kamera hedefi güncelle
+    controls.target.copy(otman.position);
+  }
 
-      skeletons.push({
-        group: skel,
-        hp: 3,
-        alive: true
-      });
-    }
+  controls.update();
+  composer.render();
+}
 
-    let battleStarted = false;
-    let attackCooldown = 0;
+animate();
 
-    // === UPDATE ===
-    function update(dt) {
-      const sec = dt / 1000;
+/* ----------------------------------------------
+   PENCERE BOYUTU
+------------------------------------------------*/
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
 
-      // Kar taneleri
-      const pos = snow.geometry.attributes.position;
-      for (let i = 0; i < snowCount; i++) {
-        let y = pos.getY(i);
-        y -= sec * (4 + Math.random() * 1.5);
-        if (y < 0) y = 60 + Math.random() * 10;
-        pos.setY(i, y);
-      }
-      pos.needsUpdate = true;
-
-      // OTMAN HAREKET
-      let vx = 0, vz = 0;
-      if (keys["w"]) vz -= 1;
-      if (keys["s"]) vz += 1;
-      if (keys["a"]) vx -= 1;
-      if (keys["d"]) vx += 1;
-
-      const speed = keys["shift"] ? 18 : 10;
-      if (vx !== 0 || vz !== 0) {
-        const len = Math.hypot(vx, vz);
-        vx /= len; vz /= len;
-        otman.position.x += vx * speed * sec;
-        otman.position.z += vz * speed * sec;
-        otman.rotation.y = Math.atan2(vx, vz);
-      }
-
-      // Ev bölgesini çok terk etmesin diye küçük sınır
-      const worldLimit = 120;
-      otman.position.x = Math.max(-worldLimit, Math.min(worldLimit, otman.position.x));
-      otman.position.z = Math.max(-worldLimit, Math.min(worldLimit, otman.position.z));
-
-      // Kamera takip (Mobile Legends açısı)
-      camera.position.x = otman.position.x;
-      camera.position.z = otman.position.z + 26;
-      camera.position.y = 24;
-      camera.lookAt(otman.position.x, otman.position.y + 4, otman.position.z);
-
-      // GAME STATE AKIŞI
-      if (gameState === "intro") {
-        // Evden çıkınca
-        if (otman.position.z < 30) {
-          gameState = "goTower";
-          setBottom('Uzaklardan yankılanan bir ses: "Otm-aaaan... kuleye gel." – Dağların arasındaki kuleye doğru ilerle.');
-        }
-      }
-
-      // Kuleye yaklaşma
-      const dxTower = otman.position.x - tower.position.x;
-      const dzTower = otman.position.z - tower.position.z;
-      const distTower = Math.hypot(dxTower, dzTower);
-
-      if (gameState === "goTower" && distTower < 10 && otman.position.z < -25) {
-        gameState = "towerBase";
-        setBottom('Otman: "Kuleye ulaştım. Tepesine çıkmanın bir yolu olmalı." – Kuleye iyice yaklaş ve E\'ye bas.');
-        setHint("Kuleye yaklaşınca E ile tepeye çık.");
-      }
-
-      // E ile kule tepesine çık
-      if (gameState === "towerBase" && keys["e"] && distTower < 10) {
-        gameState = "onTowerTop";
-        otman.position.set(tower.position.x + 0.1, 0, tower.position.z - 1);
-        // kamera ayarı update içinde zaten takip edecek
-        setBottom('Otman: "Buradayım. Şu kırmızı düğme köprüyü indiriyor olabilir." – Yanına gelip E\'ye bas.');
-        setHint("Kırmızı düğmenin yanına gel ve E\'ye bas.");
-      }
-
-      // Düğmeye E ile basma
-      const dxBtn = otman.position.x - button.position.x;
-      const dzBtn = otman.position.z - button.position.z;
-      const distBtn = Math.hypot(dxBtn, dzBtn);
-
-      if (gameState === "onTowerTop" && keys["e"] && distBtn < 3 && !bridgeLowered) {
-        bridgeLowered = true;
-        gameState = "bridgeLowered";
-        setBottom("Düğmeye bastın, köprü aşağı iniyor... ama buzdan iskeletler uyanıyor!");
-        setHint("Köprüden geç ve kar iskeletleri ile savaş. Space ile saldır.");
-      }
-
-      // Köprü animasyonu
-      if (bridgeLowered && bridgeAnim < 1) {
-        bridgeAnim += sec * 0.8;
-        const t = Math.min(1, bridgeAnim);
-        bridge.rotation.x = Math.PI / 2 - (Math.PI / 2) * t; // dikten yataya
-      }
-
-      // Köprü indikten sonra, savaş başlasın (bir kez)
-      if (bridgeLowered && !battleStarted && bridgeAnim >= 1) {
-        battleStarted = true;
-        gameState = "battle";
-        // Otman kule tarafından aşağı inmiş gibi far side'a teleport edelim
-        otman.position.set(0, 0, -25);
-        // Kar iskeletleri spawn
-        spawnSkeleton(-8, -45);
-        spawnSkeleton(0, -48);
-        spawnSkeleton(8, -45);
-        setBottom('Kar iskeletleri ortaya çıktı! Otman: "Gelin bakalım!" – Space ile saldır, yakınındaki iskeletlere hasar ver.');
-      }
-
-      // Saldırı cooldown
-      if (attackCooldown > 0) {
-        attackCooldown -= sec;
-        if (attackCooldown < 0) attackCooldown = 0;
-      }
-
-      // Space ile saldırı
-      if (gameState === "battle" && keys[" "] && attackCooldown === 0) {
-        attackCooldown = 0.4; // yarım saniye
-        // basit saldırı efekti: yakın iskeletlere hasar
-        const attackRange = 5;
-        skeletons.forEach(s => {
-          if (!s.alive) return;
-          const dx = s.group.position.x - otman.position.x;
-          const dz = s.group.position.z - otman.position.z;
-          const d = Math.hypot(dx, dz);
-          if (d < attackRange) {
-            s.hp -= 1;
-            s.group.scale.setScalar(1 + (3 - s.hp) * 0.05);
-            if (s.hp <= 0) {
-              s.alive = false;
-              scene.remove(s.group);
-            }
-          }
-        });
-      }
-
-      // İskeletler Otman'a doğru yürüsün
-      skeletons.forEach(s => {
-        if (!s.alive) return;
-        const dx = otman.position.x - s.group.position.x;
-        const dz = otman.position.z - s.group.position.z;
-        const d = Math.hypot(dx, dz);
-        if (d > 1) {
-          const spd = 6 * sec;
-          s.group.position.x += (dx / d) * spd;
-          s.group.position.z += (dz / d) * spd;
-          s.group.rotation.y = Math.atan2(dx, dz);
-        }
-      });
-
-      // Tüm iskeletler ölürse
-      if (gameState === "battle" && skeletons.length > 0 && skeletons.every(s => !s.alive)) {
-        gameState = "victory";
-        setBottom('Otman: "Kar iskeletleri bitti... Ama bu ses hâlâ bitmedi. Bu sadece ilk bölüm." – Tebrikler, kış bölümünü tamamladın!');
-        setHint("Sayfayı yenileyerek tekrar oynayabilirsin.");
-      }
-    }
-
-    function animate() {
-      const now = performance.now();
-      const dt = now - lastTime;
-      lastTime = now;
-
-      update(dt);
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    }
-    animate();
-
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  </script>
+</script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<title>Otman 3D – Uyanış Sahnesi</title>
+
+<style>
+  html, body {
+    margin: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    font-family: sans-serif;
+  }
+
+  #uiTop {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 10px;
+    color: #fff;
+    z-index: 5;
+    font-size: 14px;
+    display: none; /* Cinematic bitene kadar gizli */
+  }
+
+  canvas { display:block; }
+</style>
+
+</head>
+<body>
+
+<div id="uiTop">W A S D → Hareket • Sağ Tık → Kamera Döndür • Shift → Koş</div>
+
+<!-- THREE.JS -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/RGBELoader.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+/* =====================================================
+   SAHNE & RENDER AYARLARI
+===================================================== */
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
+
+camera.position.set(0, 2, 2);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "high-performance"
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+/* =====================================================
+   HDRI GÖKYÜZÜ
+===================================================== */
+new THREE.RGBELoader()
+  .setDataType(THREE.UnsignedByteType)
+  .load("https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/snowy_forest_path_01_1k.hdr", (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    scene.background = texture;
+  });
+
+/* =====================================================
+   IŞIKLANDIRMA
+===================================================== */
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+dirLight.position.set(20, 40, 20);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+/* =====================================================
+   EVİN İÇİ – DUVARLAR & KIRIK BÖLÜM
+===================================================== */
+const wallMat = new THREE.MeshStandardMaterial({ color: 0xbcbcbc, roughness: 0.8 });
+
+function wall(w, h, d, x, y, z, broken=false) {
+  const g = new THREE.BoxGeometry(w, h, d);
+
+  if (broken) {
+    // Duvarın bir kısmını kırık göstermek için noise verelim
+    for (let i = 0; i < g.attributes.position.count; i++) {
+      let vx = g.attributes.position.getX(i);
+      if (vx > 0) {
+        g.attributes.position.setX(i, vx + (Math.random() * 0.5));
+      }
+    }
+  }
+
+  const m = new THREE.Mesh(g, wallMat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  scene.add(m);
+}
+
+// Arka duvar
+wall(8, 4, 0.3, 0, 2, -4);
+
+// Sol duvar
+wall(0.3, 4, 8, -4, 2, 0);
+
+// Sağ duvar (KIRIK)
+wall(0.3, 4, 8, 4, 2, 0, true);
+
+// Ön duvar yok – çünkü evin yarısı yok olmuş.
+
+/* =====================================================
+   ZEMİN & KAR KAPLAMASI
+===================================================== */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(30, 30),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+/* =====================================================
+   YATAK MODELİ
+===================================================== */
+const bed = new THREE.Group();
+
+const base = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 0.4, 1),
+  new THREE.MeshStandardMaterial({ color: 0x8c5a3c })
+);
+base.position.y = 0.2;
+bed.add(base);
+
+const mattress = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 0.3, 1),
+  new THREE.MeshStandardMaterial({ color: 0xe9e4dd })
+);
+mattress.position.y = 0.6;
+bed.add(mattress);
+
+bed.position.set(0, 0, 0);
+scene.add(bed);
+
+/* =====================================================
+   OTMAN MODELİ (YATAKTA)
+===================================================== */
+const otman = new THREE.Group();
+
+const body = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.4, 1.3, 6, 12),
+  new THREE.MeshStandardMaterial({ color: 0x4477ff })
+);
+body.position.y = 1.1;
+otman.add(body);
+
+const head = new THREE.Mesh(
+  new THREE.SphereGeometry(0.35, 24, 24),
+  new THREE.MeshStandardMaterial({ color: 0xffe0bd })
+);
+head.position.y = 1.9;
+otman.add(head);
+
+// Otman yatay dursun
+otman.rotation.x = Math.PI / 2;
+otman.position.set(0, 0.8, 0);
+
+scene.add(otman);
+
+/* =====================================================
+   SİNEMATİK KAMERA – UYANIŞ
+===================================================== */
+let cinematic = true;
+let cinematicTime = 0;
+
+// “OTMAAAN” sesi
+const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_8b69294883.mp3?filename=dark-ambient-gong-140274.mp3");
+
+function runCinematic(dt) {
+  cinematicTime += dt;
+
+  // 0–2 saniye: kamera yatay
+  if (cinematicTime < 2) {
+    camera.position.set(0, 1.2, 1.5);
+    camera.lookAt(0, 1.2, 0);
+  }
+
+  // 2–6 saniye: kamera yavaşça yukarı kalkıyor
+  if (cinematicTime >= 2 && cinematicTime < 6) {
+    let t = (cinematicTime - 2) / 4;
+    camera.position.set(0, 1.2 + t * 2, 1.5 + t * 1.2);
+    camera.lookAt(0, 1.2 + t * 1.5, 0);
+  }
+
+  // 3. saniyede yankı gelsin
+  if (cinematicTime > 3 && cinematicTime < 3.2) audio.play();
+
+  // 6. saniye → Otman ayağa kalkar
+  if (cinematicTime >= 6 && cinematicTime < 6.1) {
+    otman.rotation.x = 0;
+    otman.position.z = -1;
+  }
+
+  // 6–8 saniye: Otman'ın olduğu alana yaklaş
+  if (cinematicTime >= 6 && cinematicTime < 8) {
+    let t = (cinematicTime - 6) / 2;
+    camera.position.set(0, 3, 4 - t * 2);
+    camera.lookAt(0, 1.8, -1);
+  }
+
+  // 8. saniye → Sinematik biter
+  if (cinematicTime >= 8) {
+    cinematic = false;
+    document.getElementById("uiTop").style.display = "block";
+  }
+}
+
+/* =====================================================
+   KLAVYE + KAMERA KONTROLLERİ
+===================================================== */
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+let rightMouse = false;
+document.addEventListener("mousedown", e => {
+  if (e.button === 2) rightMouse = true;
+});
+document.addEventListener("mouseup", e => {
+  if (e.button === 2) rightMouse = false;
+});
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target = new THREE.Vector3(0, 1.8, -1);
+controls.enablePan = false;
+controls.enableZoom = true;
+controls.enableRotate = false;
+controls.minDistance = 4;
+controls.maxDistance = 12;
+
+/* =====================================================
+   ANİMASYON DÖNGÜSÜ
+===================================================== */
+let last = performance.now();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  let now = performance.now();
+  let dt = (now - last) / 1000;
+  last = now;
+
+  if (cinematic) {
+    runCinematic(dt);
+  } else {
+    // Normal oyun kontrolü
+    controls.enableRotate = rightMouse;
+
+    let vx = 0, vz = 0;
+    let speed = 5;
+
+    if (keys["w"]) vz -= 1;
+    if (keys["s"]) vz += 1;
+    if (keys["a"]) vx -= 1;
+    if (keys["d"]) vx += 1;
+
+    if (vx !== 0 || vz !== 0) {
+      const len = Math.hypot(vx, vz);
+      vx /= len; vz /= len;
+
+      otman.position.x += vx * speed * dt;
+      otman.position.z += vz * speed * dt;
+
+      otman.rotation.y = Math.atan2(vx, vz);
+
+      controls.target.copy(otman.position).add(new THREE.Vector3(0,1.8,0));
+    }
+
+    controls.update();
+  }
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+/* =====================================================
+   EKRAN BOYUTU
+===================================================== */
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
+/* =====================================================
+   AŞAMA 3 — KAR İSKELETLERİ & SAVAŞ SİSTEMİ
+===================================================== */
+
+// Düşman dizisi
+let skeletons = [];
+let battleStarted = false;
+let attackCooldown = 0;
+
+// İskelet oluşturma fonksiyonu
+function spawnSkeleton(x, z) {
+  const skel = new THREE.Group();
+
+  const boneMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.6,
+    metalness: 0.0
+  });
+
+  // Gövde
+  const torso = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.4, 1.0, 6, 12),
+    boneMat
+  );
+  torso.position.y = 1.4;
+  skel.add(torso);
+
+  // Kafatası
+  const skull = new THREE.Mesh(
+    new THREE.SphereGeometry(0.45, 20, 20),
+    boneMat
+  );
+  skull.position.y = 2.3;
+  skel.add(skull);
+
+  // Bacaklar
+  const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.0, 12);
+  const legL = new THREE.Mesh(legGeo, boneMat);
+  legL.position.set(-0.25, 0.5, 0);
+  const legR = legL.clone();
+  legR.position.x = 0.25;
+  skel.add(legL, legR);
+
+  // Kollar
+  const armGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.9, 12);
+  const armL = new THREE.Mesh(armGeo, boneMat);
+  armL.position.set(-0.55, 1.7, 0);
+  const armR = armL.clone();
+  armR.position.x = 0.55;
+  skel.add(armL, armR);
+
+  // Gölge
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.8, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.34
+    })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.01;
+  skel.add(shadow);
+
+  // Pozisyon
+  skel.position.set(x, 0, z);
+
+  // İskelet nesnesi
+  const skeleton = {
+    group: skel,
+    hp: 3,
+    alive: true
+  };
+
+  skeletons.push(skeleton);
+  scene.add(skel);
+}
+
+/* =====================================================
+   KÖPRÜ AÇILDIKTAN SONRA DÜŞMANLARI SPAWN ET
+===================================================== */
+function startBattle() {
+  if (battleStarted) return;
+  battleStarted = true;
+
+  // Üç adet kar iskeleti çağır
+  spawnSkeleton(-6, -42);
+  spawnSkeleton(0, -45);
+  spawnSkeleton(6, -42);
+
+  showMission("Kar iskeletlerini yok et! Space → Saldırı");
+}
+
+/* =====================================================
+   SALDIRI SİSTEMİ
+===================================================== */
+function playerAttack(dt) {
+  if (attackCooldown > 0) {
+    attackCooldown -= dt;
+    if (attackCooldown < 0) attackCooldown = 0;
+  }
+
+  // Space'e basıldıysa
+  if (keys[" "] && attackCooldown === 0) {
+    attackCooldown = 0.5;
+
+    const attackRange = 3;
+
+    skeletons.forEach(s => {
+      if (!s.alive) return;
+
+      const dx = s.group.position.x - otman.position.x;
+      const dz = s.group.position.z - otman.position.z;
+      const dist = Math.hypot(dx, dz);
+
+      if (dist < attackRange) {
+        s.hp -= 1;
+
+        // Hit efekti
+        s.group.scale.setScalar(1 + (3 - s.hp) * 0.08);
+
+        // Öldü mü?
+        if (s.hp <= 0) {
+          s.alive = false;
+          scene.remove(s.group);
+        }
+      }
+    });
+  }
+}
+
+/* =====================================================
+   İSKELETLERİN OYUNCUYA YÜRÜMESİ
+===================================================== */
+function updateSkeletons(dt) {
+  skeletons.forEach(s => {
+    if (!s.alive) return;
+
+    const dx = otman.position.x - s.group.position.x;
+    const dz = otman.position.z - s.group.position.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist > 1.2) {
+      const speed = 4 * dt;
+      s.group.position.x += (dx / dist) * speed;
+      s.group.position.z += (dz / dist) * speed;
+    }
+
+    s.group.rotation.y = Math.atan2(dx, dz);
+  });
+}
+
+/* =====================================================
+   TÜM İSKELETLER ÖLDÜ → GÖREV TAMAMLANDI
+===================================================== */
+function checkBattleEnd() {
+  if (!battleStarted) return;
+
+  if (skeletons.length > 0 && skeletons.every(s => !s.alive)) {
+    showMission("Görev tamamlandı! Otman: \"Bu sadece başlangıç...\"");
+  }
+}
